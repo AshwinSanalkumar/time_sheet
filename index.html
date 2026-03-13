@@ -93,7 +93,7 @@
         let state = JSON.parse(localStorage.getItem('timerState')) || defaultState;
         if (!state.breaks) state.breaks = [];
 
-        const TARGET_MS = 8 * 60 * 60 * 1000;
+        const TARGET_MS = 1 * 60 * 1000; // 15 Minutes for testing 
 
         function save() {
             localStorage.setItem('timerState', JSON.stringify(state));
