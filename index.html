@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Time Tracker</title>
+    <title>Time Tracker | Office Pro</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         .glass { background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px); }
@@ -58,8 +58,8 @@
 
             <div class="mt-6 pt-6 border-t border-slate-100">
                 <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 text-center">Break Analysis</p>
-                <div class="max-h-40 overflow-y-auto log-scroll border rounded-xl">
-                    <table class="w-full text-left bg-white">
+                <div class="max-h-40 overflow-y-auto log-scroll border rounded-xl bg-white/50">
+                    <table class="w-full text-left">
                         <thead class="bg-slate-50 text-[10px] uppercase text-slate-500 font-bold">
                             <tr>
                                 <th class="px-3 py-2">Start</th>
@@ -80,20 +80,20 @@
     </div>
 
     <script>
-        // Use a default state that definitely includes 'breaks'
         const defaultState = {
             status: 'OUT',
             totalWorkMs: 0,
             totalBreakMs: 0,
             lastTimestamp: null,
             startTime: null,
-            breaks: []
+            breaks: [],
+            notified: false
         };
 
         let state = JSON.parse(localStorage.getItem('timerState')) || defaultState;
-        if (!state.breaks) state.breaks = []; // Patch for older data
+        if (!state.breaks) state.breaks = [];
 
-        const TARGET_MS = 8 * 60 * 60 * 1000;
+        const TARGET_MS = 1 * 60 * 1000; // 15 Minutes for testing 
 
         function save() {
             localStorage.setItem('timerState', JSON.stringify(state));
@@ -116,10 +116,21 @@
             return new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
         }
 
+        function requestNotify() {
+            if ("Notification" in window && Notification.permission === "default") {
+                Notification.requestPermission();
+            }
+        }
+
+        function sendNotification(title, body) {
+            if ("Notification" in window && Notification.permission === "granted") {
+                new Notification(title, { body, icon: "https://cdn-icons-png.flaticon.com/512/190/190411.png" });
+            }
+        }
+
         function renderLogs() {
             const tableBody = document.getElementById('breakTableBody');
             const shiftText = document.getElementById('shiftStart');
-            
             shiftText.innerText = state.startTime ? `Shift started at: ${state.startTime}` : "Not clocked in yet";
 
             if (state.breaks.length === 0) {
@@ -128,7 +139,7 @@
             }
 
             tableBody.innerHTML = state.breaks.map(b => `
-                <tr class="border-b border-slate-50">
+                <tr class="border-b border-slate-50 last:border-0">
                     <td class="px-3 py-2 font-mono text-slate-400">${b.start}</td>
                     <td class="px-3 py-2 font-mono text-slate-400">${b.end || '...'}</td>
                     <td class="px-3 py-2 text-right font-bold text-orange-500">${b.duration ? formatDuration(b.duration) : '--'}</td>
@@ -158,6 +169,13 @@
             document.getElementById('remainingTime').innerText = remaining > 0 ? 
                 `Left: ${formatTime(remaining)}` : "Goal Reached! 🎉";
 
+            // Notification Trigger
+            if (progress >= 100 && !state.notified) {
+                sendNotification("Work Goal Reached!", "You've officially completed 8 hours. Great work!");
+                state.notified = true;
+                save();
+            }
+
             const badge = document.getElementById('statusBadge');
             const btnMain = document.getElementById('btnMain');
             const btnBreak = document.getElementById('btnBreak');
@@ -169,25 +187,26 @@
                 btnMain.className = "w-full py-4 bg-red-500 text-white rounded-2xl font-bold shadow-lg";
                 btnBreak.classList.remove('hidden');
                 btnBreak.innerText = "Take Break";
-                btnBreak.className = "w-full py-4 bg-white border-2 border-orange-400 text-orange-600 rounded-2xl font-bold";
+                btnBreak.className = "w-full py-4 bg-white border-2 border-orange-400 text-orange-600 rounded-2xl font-bold transition-all active:scale-95";
             } else if (state.status === 'BREAK') {
                 badge.innerText = "On Break";
                 badge.className = "px-4 py-1 rounded-full text-sm font-bold bg-orange-100 text-orange-600 uppercase tracking-widest";
                 btnMain.classList.add('hidden');
                 btnBreak.classList.remove('hidden');
                 btnBreak.innerText = "Resume Work";
-                btnBreak.className = "w-full py-4 bg-blue-600 text-white rounded-2xl font-bold";
+                btnBreak.className = "w-full py-4 bg-blue-600 text-white rounded-2xl font-bold shadow-lg transition-all active:scale-95";
             } else {
                 badge.innerText = "Clocked Out";
                 badge.className = "px-4 py-1 rounded-full text-sm font-bold bg-slate-200 text-slate-600 uppercase tracking-widest";
                 btnMain.classList.remove('hidden');
                 btnMain.innerText = "Time In";
-                btnMain.className = "w-full py-4 bg-blue-600 text-white rounded-2xl font-bold shadow-lg";
+                btnMain.className = "w-full py-4 bg-blue-600 text-white rounded-2xl font-bold shadow-lg transition-all active:scale-95";
                 btnBreak.classList.add('hidden');
             }
         }
 
         function handleMainAction() {
+            requestNotify(); // Prompt for permission on first interaction
             const now = Date.now();
             if (state.status === 'OUT') {
                 state.status = 'WORKING';
@@ -234,10 +253,9 @@
             }
         }
 
-        // Run immediately
         renderLogs();
         updateUI();
         setInterval(updateUI, 1000);
     </script>
 </body>
-</html> 
+</html>
